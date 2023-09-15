@@ -15,6 +15,7 @@ export default class View {
     this.$.p1Wins = this.#qs('[data-id="p1-wins"]');
     this.$.p2Wins = this.#qs('[data-id="p2-wins"]');
     this.$.ties = this.#qs('[data-id="ties"]');
+    this.$.grid = this.#qs('[data-id="grid"]');
 
     this.$$.squares = this.#qsAll('[data-id="square"]');
 
@@ -24,11 +25,35 @@ export default class View {
     });
   }
 
+  render(game, stats) {
+    const { playerWithStats, ties } = stats;
+    const {
+      moves,
+      currentPlayer,
+      status: { isComplete, winner },
+    } = game;
+
+    this.#closeAll();
+    this.#clearMoves();
+    this.#updateScoreboard(
+      playerWithStats[0].wins,
+      playerWithStats[1].wins,
+      ties
+    );
+    this.#initializeMoves(moves);
+
+    if (isComplete) {
+      this.#openModal(winner ? `${winner.name} wins!` : "Tie!");
+    }
+
+    this.#setTurnIndicator(currentPlayer);
+  }
+
   // Register all event listeners
 
   bindGameResetEvent(handler) {
     this.$.resetBtn.addEventListener("click", handler);
-    this.$.modalBtn.addEventListener('click', handler)
+    this.$.modalBtn.addEventListener("click", handler);
   }
 
   bindNewRoundEvent(handler) {
@@ -36,42 +61,50 @@ export default class View {
   }
 
   bindPlayerMoveEvent(handler) {
-    this.$$.squares.forEach((square) => {
-      square.addEventListener("click",() => handler(square));
-    });
+    this.#delegate(this.$.grid, '[data-id="square"]', 'click', handler)
   }
 
   // DOM helper methods
 
-  updateScoreboard(p1Wins, p2Wins, ties) {
-    this.$.p1Wins.innerText = `${p1Wins} wins`
-    this.$.p2Wins.innerText = `${p2Wins} wins`
-    this.$.ties.innerText = `${ties} ties`
+  #updateScoreboard(p1Wins, p2Wins, ties) {
+    this.$.p1Wins.innerText = `${p1Wins} Wins`;
+    this.$.p2Wins.innerText = `${p2Wins} Wins`;
+    this.$.ties.innerText = `${ties} Ties`;
   }
 
-  openModal(message) {
-    this.$.modal.classList.remove('hidden')
-    this.$.modalText.innerText = message
+  #openModal(message) {
+    this.$.modal.classList.remove("hidden");
+    this.$.modalText.innerText = message;
   }
 
-  closeAll() {
-    this.#closeModal() 
-    this.#closeMenu()
+  #closeAll() {
+    this.#closeModal();
+    this.#closeMenu();
   }
 
-  clearMoves(){
-    this.$$.squares.forEach(square => {
-      square.replaceChildren()
-    })
+  #clearMoves() {
+    this.$$.squares.forEach((square) => {
+      square.replaceChildren();
+    });
+  }
+
+  #initializeMoves(moves) {
+    this.$$.squares.forEach((square) => {
+      const existingMove = moves.find((move) => move.squareId === +square.id);
+
+      if (existingMove) {
+        this.#handlePlayerMove(square, existingMove.player);
+      }
+    });
   }
 
   #closeModal() {
-    this.$.modal.classList.add('hidden')
+    this.$.modal.classList.add("hidden");
   }
 
   #closeMenu() {
-    this.$.menuItems.classList.add('hidden')
-    this.$.menuBtn.classList.remove('border')
+    this.$.menuItems.classList.add("hidden");
+    this.$.menuBtn.classList.remove("border");
     const icon = this.$.menuBtn.querySelector("i");
 
     icon.classList.add("fa-chevron-down");
@@ -88,23 +121,22 @@ export default class View {
     icon.classList.toggle("fa-chevron-up");
   }
 
-  handlePlayerMove(squareEl, player) {
-    const icon = document.createElement('i')
-    icon.classList.add('fa-solid', player.iconClass, player.colorClass)
+  #handlePlayerMove(squareEl, player) {
+    const icon = document.createElement("i");
+    icon.classList.add("fa-solid", player.iconClass, player.colorClass);
     squareEl.replaceChildren(icon);
   }
 
+  #setTurnIndicator(player) {
+    const icon = document.createElement("i");
+    const label = document.createElement("p");
 
-  setTurnIndicator(player) {
-    const icon = document.createElement('i')
-    const label = document.createElement('p')
+    icon.classList.add("fa-solid", player.colorClass, player.iconClass);
 
-    icon.classList.add('fa-solid', player.colorClass, player.iconClass);
+    label.classList.add(player.colorClass);
+    label.innerText = `${player.name}, you're up!`;
 
-    label.classList.add(player.colorClass)
-    label.innerText = `${player.name}, you're up!`
-  
-    this.$.turn.replaceChildren(icon, label)
+    this.$.turn.replaceChildren(icon, label);
   }
 
   #qs(selector, parent) {
@@ -123,5 +155,13 @@ export default class View {
     if (!elList) throw new Error("Could not find elements");
 
     return elList;
+  }
+
+  #delegate(el, selector, eventKey, handler) {
+    el.addEventListener(eventKey, (event) => {
+      if (event.target.matches(selector)) {
+        handler(event.target);
+      }
+    });
   }
 }
